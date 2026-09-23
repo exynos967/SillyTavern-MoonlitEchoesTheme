@@ -1121,3 +1121,32 @@ function setupPublicMoonlitApi() {
 setupPublicMoonlitApi();
 initExtension({ initExtensionUI, toggleCss });
 registerDomReadyHandler(runStartupDomReadyTasks);
+
+// Restore the saved chat style class unconditionally at startup.
+// initChatDisplaySwitcher is gated behind #themes/#chat_display being present in
+// the document, but hosts that detach closed settings drawers from the DOM
+// (e.g. TauriTavern panel parking, combined with deferred third-party extension
+// loading) may leave the saved style unapplied for the whole session. The CSS
+// class alone is sufficient (stylesheets are injected separately via toggleCss),
+// so re-apply it without touching the DOM select elements.
+(function restoreSavedChatStyleClass() {
+    const STYLE_CLASS_BY_VALUE = {
+        '0': 'flatchat', '1': 'bubblechat', '2': 'documentstyle',
+        '3': 'echostyle', '4': 'whisperstyle', '5': 'hushstyle',
+        '6': 'ripplestyle', '7': 'tidestyle',
+    };
+    const ALL_STYLE_CLASSES = Object.values(STYLE_CLASS_BY_VALUE);
+
+    function applySavedChatStyle() {
+        if (!document.body) return;
+        const styleClass = STYLE_CLASS_BY_VALUE[localStorage.getItem('savedChatStyle')];
+        if (!styleClass || document.body.classList.contains(styleClass)) return;
+        document.body.classList.remove(...ALL_STYLE_CLASSES);
+        document.body.classList.add(styleClass);
+    }
+
+    applySavedChatStyle();
+    // Cover late host/extension startup races that may strip the class again.
+    setTimeout(applySavedChatStyle, 1500);
+    setTimeout(applySavedChatStyle, 5000);
+})();
